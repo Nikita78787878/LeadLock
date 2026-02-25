@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     VERSION: Literal["LITE", "PRO", "AI"]
     GOOGLE_SHEET_ID: str
+    GOOGLE_CREDENTIALS_JSON: str
     OPENAI_API_KEY: str
     ADMIN_IDS: list[int]
 
