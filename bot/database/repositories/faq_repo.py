@@ -46,3 +46,67 @@ class FAQRepository:
         stmt = select(FAQItem).where(FAQItem.id == faq_id)
         result = await self.session.execute(stmt)
         return result.scalars().first()
+
+    async def create(self, question: str, answer: str, order: int = 0) -> FAQItem:
+        """
+        Создать новый элемент FAQ.
+
+        Args:
+            question: Вопрос FAQ
+            answer: Ответ на вопрос
+            order: Порядок сортировки (по умолчанию 0)
+
+        Returns:
+            Созданный объект FAQItem
+        """
+        item = FAQItem(question=question, answer=answer, order=order)
+        self.session.add(item)
+        await self.session.flush()
+        return item
+
+    async def update(
+        self,
+        faq_id: int,
+        question: str | None = None,
+        answer: str | None = None,
+    ) -> FAQItem | None:
+        """
+        Обновить элемент FAQ.
+
+        Args:
+            faq_id: ID элемента FAQ
+            question: Новый вопрос (опционально)
+            answer: Новый ответ (опционально)
+
+        Returns:
+            Обновленный объект FAQItem или None если элемент не найден
+        """
+        item = await self.get_by_id(faq_id)
+        if not item:
+            return None
+
+        if question is not None:
+            item.question = question
+        if answer is not None:
+            item.answer = answer
+
+        await self.session.flush()
+        return item
+
+    async def delete(self, faq_id: int) -> bool:
+        """
+        Удалить элемент FAQ (мягкое удаление).
+
+        Args:
+            faq_id: ID элемента FAQ
+
+        Returns:
+            True если элемент удален, False если элемент не найден
+        """
+        item = await self.get_by_id(faq_id)
+        if not item:
+            return False
+
+        item.is_active = False
+        await self.session.flush()
+        return True

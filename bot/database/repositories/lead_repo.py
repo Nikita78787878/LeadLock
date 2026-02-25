@@ -1,6 +1,6 @@
 """Lead repository for database operations."""
 
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models.lead import Lead
@@ -96,3 +96,17 @@ class LeadRepository:
         lead.status = status
         await self.session.flush()
         return lead
+
+    async def get_recent(self, limit: int = 10) -> list[Lead]:
+        """
+        Получить последние N заявок, отсортированных по дате создания.
+
+        Args:
+            limit: Количество заявок для получения (по умолчанию: 10)
+
+        Returns:
+            Список объектов Lead, отсортированных по дате создания в порядке убывания
+        """
+        stmt = select(Lead).order_by(desc(Lead.created_at)).limit(limit)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()

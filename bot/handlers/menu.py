@@ -90,7 +90,8 @@ async def handle_main_menu(
     """
     Обработчик кнопок главного меню.
 
-    Обрабатывает действия: "faq", "lead", "contact".
+    Обрабатывает действия: "faq", "contact".
+    Действие "lead" обрабатывается в lead_form.py.
 
     Args:
         callback: Callback query от пользователя
@@ -131,17 +132,6 @@ async def handle_main_menu(
                     user_id=user_id,
                     count=len(faq_items),
                 )
-
-        elif action == "lead":
-            # TODO: Реализация создания заявки
-            await callback.message.edit_text(
-                text="📋 Функция создания заявки будет доступна в следующей версии.",
-                reply_markup=get_back_kb(back_to="main"),
-            )
-            await logger.ainfo(
-                "Выбрана функция создания заявки",
-                user_id=user_id,
-            )
 
         elif action == "contact":
             # TODO: Реализация отображения контактов
