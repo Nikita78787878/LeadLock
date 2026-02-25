@@ -1,7 +1,7 @@
 """Сервисный слой для работы с заявками (лидами)."""
 
 import re
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,20 +9,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.database.models.lead import Lead
 from bot.database.repositories.lead_repo import LeadRepository
 
+if TYPE_CHECKING:
+    from bot.services.google_sheets_service import GoogleSheetsService
+
 logger = structlog.get_logger()
 
 
 class LeadService:
     """Сервис для работы с заявками."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(
+        self,
+        session: AsyncSession,
+        sheets_service: "GoogleSheetsService | None" = None,
+    ):
         """
         Инициализация сервиса.
 
         Args:
             session: AsyncSession для операций с БД
+            sheets_service: Сервис для работы с Google Sheets
         """
         self.repository = LeadRepository(session)
+        self.sheets_service = sheets_service
 
     def validate_name(self, name: str) -> tuple[bool, str]:
         """
@@ -161,15 +170,17 @@ class LeadService:
         """
         Отправить заявку в Google Sheets.
 
-        На данный момент это заглушка для будущей интеграции.
-
         Args:
             lead: Объект заявки для отправки
         """
-        await logger.ainfo(
-            "Отправка в Google Sheets будет добавлена",
-            lead_id=lead.id,
-        )
+        if self.sheets_service is None:
+            await logger.ainfo(
+                "Google Sheets сервис не подключён",
+                lead_id=lead.id,
+            )
+            return
+
+        await self.sheets_service.append_lead(lead)
 
     async def get_recent_leads(self, limit: int = 10) -> list[Lead]:
         """
