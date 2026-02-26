@@ -89,6 +89,16 @@ async def on_startup(bot: Bot) -> None:
     await logger.ainfo("🤖 Бот запускается...")
 
     try:
+        # Создаём таблицы если не существуют
+        from bot.database.db_helper import engine
+        from bot.database.models.base import Base
+        from bot.database.models import User, Lead, FAQItem, Config, Operator
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        await logger.ainfo("✅ Таблицы БД проверены/созданы")
+
         # Инициализируем сервис Google Sheets
         sheets_service = GoogleSheetsService(
             credentials_path=settings.GOOGLE_CREDENTIALS_JSON,
@@ -96,7 +106,17 @@ async def on_startup(bot: Bot) -> None:
         )
 
         # Проверяем доступность Google Sheets
-        health_check_result = await sheets_service.health_check()
+        try:
+            health_check_result = await sheets_service.health_check()
+        except FileNotFoundError as fnf:
+            # Понятное сообщение при ошибочном пути к credentials
+            await logger.awarning(
+                "⚠️ Файл учетных данных Google не найден. Проверьте переменную окружения GOOGLE_CREDENTIALS_JSON в .env",
+                credentials_path=str(settings.GOOGLE_CREDENTIALS_JSON),
+                error=str(fnf),
+            )
+            # Разрешаем боту продолжить работу без интеграции с Google Sheets
+            health_check_result = False
 
         if health_check_result:
             await logger.ainfo(
@@ -161,12 +181,7 @@ async def main() -> None:
     )
 
     # Создаём экземпляр бота с HTML парсингом по умолчанию
-    bot = Bot(
-        token=settings.BOT_TOKEN,
-        default={
-            "parse_mode": ParseMode.HTML,
-        },
-    )
+    bot = Bot(token=settings.BOT_TOKEN, parse_mode=ParseMode.HTML)
 
     # Инициализируем диспетчер с MemoryStorage для FSM
     storage = MemoryStorage()
@@ -192,12 +207,12 @@ async def main() -> None:
 
     await logger.ainfo("✅ Admin роутер зарегистрирован")
 
-    # 2. Menu роутер (общедоступное меню)
-    dp.include_router(menu_router)
+    # 2. Lead Form роутер (форма заявок)
+    dp.include_router(lead_form_router)
     await logger.ainfo("✅ Menu роутер зарегистрирован")
 
-    # 3. Lead Form роутер (форма заявок)
-    dp.include_router(lead_form_router)
+    # 3. Menu роутер (общедоступное меню)
+    dp.include_router(menu_router)
     await logger.ainfo("✅ Lead Form роутер зарегистрирован")
 
     # ========================================================================

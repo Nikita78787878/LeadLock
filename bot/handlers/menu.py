@@ -5,6 +5,7 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
+from bot.database.repositories.user_repo import UserRepository
 
 from bot.keyboards.inline import (
     MainMenuCD,
@@ -26,56 +27,40 @@ router = Router(name="menu")
 # Команда /start
 # ============================================================================
 
-
 @router.message(Command("start"))
 async def cmd_start(message: Message, session: AsyncSession) -> None:
-    """
-    Обработчик команды /start.
+    from bot.database.repositories.user_repo import UserRepository
 
-    Отправляет приветственное сообщение из БД и главное меню.
-
-    Args:
-        message: Сообщение от пользователя
-        session: Сессия БД
-    """
-    user_id = message.from_user.id
+    user_id = message.from_user.id  # эта строка была потеряна
     username = message.from_user.username or "Пользователь"
 
-    await logger.ainfo(
-        "Пользователь запустил бота",
-        user_id=user_id,
-        username=username,
-    )
+    await logger.ainfo("Пользователь запустил бота", user_id=user_id, username=username)
 
     try:
+        # Сохраняем пользователя в БД если не существует
+        user_repo = UserRepository(session)
+        user = await user_repo.get_by_tg_id(user_id)
+        if user is None:
+            user = await user_repo.create_user(
+                telegram_id=user_id,
+                username=message.from_user.username,
+                full_name=message.from_user.full_name,
+            )
+            await session.commit()
+            await logger.ainfo("Новый пользователь создан в БД", user_id=user_id)
+        else:
+            await logger.ainfo("Пользователь уже существует в БД", user_id=user_id)
+
         # Получаем приветственный текст через сервис
         config_service = ConfigService(session)
         welcome_text = await config_service.get_welcome_text()
 
-        # Отправляем приветствие с главным меню
-        await message.answer(
-            text=welcome_text,
-            reply_markup=get_main_menu_kb(),
-        )
-
-        await logger.ainfo(
-            "Отправлено приветственное сообщение",
-            user_id=user_id,
-        )
+        await message.answer(text=welcome_text, reply_markup=get_main_menu_kb())
+        await logger.ainfo("Отправлено приветственное сообщение", user_id=user_id)
 
     except Exception as e:
-        await logger.aerror(
-            "Ошибка при обработке команды /start",
-            user_id=user_id,
-            error=str(e),
-        )
-        # Отправляем дефолтное сообщение при ошибке
-        await message.answer(
-            text="Добро пожаловать! 👋",
-            reply_markup=get_main_menu_kb(),
-        )
-
-
+        await logger.aerror("Ошибка при обработке команды /start", user_id=user_id, error=str(e))
+        await message.answer(text="Добро пожаловать! 👋", reply_markup=get_main_menu_kb())
 # ============================================================================
 # Обработчик главного меню
 # ============================================================================

@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, Integer, String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from bot.database.base import Base
+from bot.database.models.base import Base
 
 
 class FAQItem(Base):

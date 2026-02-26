@@ -1,6 +1,7 @@
 """Сервисный слой для работы с Google Sheets."""
 
 import structlog
+from pathlib import Path
 from google.oauth2.service_account import Credentials
 from gspread_asyncio import AsyncioGspreadClientManager
 from gspread.exceptions import WorksheetNotFound
@@ -32,32 +33,40 @@ class GoogleSheetsService:
         self.sheet_id = sheet_id
         self._client = None  # кэш клиента
 
+    def _get_credentials(self):
+        """Создать объект учетных данных Google."""
+        return Credentials.from_service_account_file(
+            self.credentials_path,
+            scopes=self.SCOPES,
+        )
+
     async def _get_client(self):
         """Получить или создать авторизованный клиент gspread."""
         if self._client is not None:
             return self._client
 
         try:
-            # Загрузить учетные данные из файла
-            credentials = Credentials.from_service_account_file(
-                self.credentials_path,
-                scopes=self.SCOPES,
-            )
+            cred_path = Path(self.credentials_path)
+            if not cred_path.exists():
+                await logger.aerror(
+                    "Файл учетных данных Google не найден",
+                    credentials_path=str(cred_path),
+                )
+                raise FileNotFoundError(f"Credentials file not found: {cred_path}")
 
-            # Создать асинхронный менеджер клиента
-            auth_manager = AsyncioGspreadClientManager(auth=credentials)
+            # Передаём функцию, а не объект credentials
+            auth_manager = AsyncioGspreadClientManager(self._get_credentials)
             self._client = await auth_manager.authorize()
 
-            await logger.ainfo(
-                "Авторизация в Google Sheets выполнена успешно",
-            )
-
+            await logger.ainfo("Авторизация в Google Sheets выполнена успешно")
             return self._client
+
         except Exception as e:
             await logger.aerror(
                 "Ошибка при авторизации в Google Sheets",
                 error=str(e),
                 error_type=type(e).__name__,
+                credentials_path=self.credentials_path,
             )
             raise
 
@@ -115,27 +124,21 @@ class GoogleSheetsService:
                 error=str(e),
                 error_type=type(e).__name__,
             )
-
+    # TODO Времено заменил метод заглушил
     async def health_check(self) -> bool:
         """Проверить соединение с Google Sheets."""
         try:
-            # Получить клиент
             client = await self._get_client()
-
-            # Открыть таблицу и получить список листов
             spreadsheet = await client.open_by_key(self.sheet_id)
-            worksheets = await spreadsheet.worksheets()
-
-            await logger.ainfo(
-                "Проверка соединения с Google Sheets успешна",
-                worksheets_count=len(worksheets),
-            )
+            await logger.ainfo("Проверка соединения с Google Sheets успешна")
             return True
         except Exception as e:
-            # При ошибке только логировать и вернуть False
+            import traceback
+            print("FULL TRACEBACK:", traceback.format_exc())
             await logger.aerror(
                 "Ошибка при проверке соединения с Google Sheets",
                 error=str(e),
                 error_type=type(e).__name__,
+                credentials_path=self.credentials_path,
             )
             return False

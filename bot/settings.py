@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     GOOGLE_CREDENTIALS_JSON: str
     OPENAI_API_KEY: str
     ADMIN_IDS: list[int]
+    LOG_LEVEL: str = "INFO"
 
     class Config:
         env_file = ".env"

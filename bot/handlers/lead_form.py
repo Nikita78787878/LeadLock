@@ -12,6 +12,7 @@ from aiogram.types import (
     KeyboardButton,
     ReplyKeyboardRemove,
 )
+from bot.database.repositories.user_repo import UserRepository
 
 from bot.keyboards.inline import MainMenuCD, get_main_menu_kb
 from bot.services.lead_service import LeadService
@@ -345,132 +346,76 @@ async def process_phone_text(
 # Ввод описания и сохранение заявки
 # ============================================================================
 
-
 @router.message(LeadForm.waiting_for_description)
 async def process_description(
     message: Message,
     state: FSMContext,
     session,
 ) -> None:
-    """
-    Обработчик ввода описания и сохранения заявки.
+    from bot.database.repositories.user_repo import UserRepository
+    from bot.services.google_sheets_service import GoogleSheetsService
+    from bot.settings import settings
 
-    Собирает все данные, сохраняет заявку в БД и завершает FSM.
-
-    Args:
-        message: Сообщение от пользователя с описанием
-        state: FSM context
-        session: Сессия БД (из middleware)
-    """
     user_id = message.from_user.id
     text = message.text
 
-    await logger.ainfo(
-        "Получено описание заявки",
-        user_id=user_id,
-        description_length=len(text),
-    )
+    await logger.ainfo("Получено описание заявки", user_id=user_id, description_length=len(text))
 
     # Проверка на отмену
     if text == "❌ Отмена":
         await state.clear()
-
-        await logger.ainfo(
-            "Заявка отменена при вводе описания",
-            user_id=user_id,
-        )
-
-        await message.answer(
-            text="❌ Заявка отменена.",
-            reply_markup=get_main_menu_kb(),
-        )
+        await message.answer(text="❌ Заявка отменена.", reply_markup=get_main_menu_kb())
         return
 
-    # Получаем все данные из state
+    # Получаем данные из state
     data = await state.get_data()
     name = data.get("name")
     phone = data.get("phone")
 
-    await logger.ainfo(
-        "Данные заявки собраны",
-        user_id=user_id,
-        name=name,
-        phone=phone,
+    await logger.ainfo("Данные заявки собраны", user_id=user_id, name=name, phone=phone)
+
+    # Получаем внутренний id пользователя из БД
+    user_repo = UserRepository(session)
+    user = await user_repo.get_by_tg_id(user_id)
+    if user is None:
+        await message.answer("❌ Ошибка. Отправьте /start и попробуйте снова.", reply_markup=get_main_menu_kb())
+        await state.clear()
+        return
+
+    # Подключаем Google Sheets
+    sheets_service = GoogleSheetsService(
+        credentials_path=settings.GOOGLE_CREDENTIALS_JSON,
+        sheet_id=settings.GOOGLE_SHEET_ID,
     )
 
-    # Сохраняем заявку в БД
-    lead_service = LeadService(session)
+    # Сохраняем заявку
+    lead_service = LeadService(session, sheets_service=sheets_service)
 
     try:
         lead = await lead_service.save_lead(
-            user_id=user_id,
+            user_id=user.id,  # внутренний id, не telegram_id
             name=name,
             phone=phone,
             description=text,
         )
+        await session.commit()
 
-        await logger.ainfo(
-            "Заявка успешно сохранена",
-            user_id=user_id,
-            lead_id=lead.id,
-            name=name,
-        )
-
-        # Очищаем state
         await state.clear()
 
-        # Отправляем подтверждение с удалением клавиатуры
         await message.answer(
-            text=(
-                f"✅ Заявка принята!\n\n"
-                f"Мы свяжемся с вами в ближайшее время.\n\n"
-                f"{name}, спасибо за обращение!"
-            ),
+            text=f"✅ Заявка принята!\n\nМы свяжемся с вами в ближайшее время.\n\n{name}, спасибо за обращение!",
             reply_markup=ReplyKeyboardRemove(),
         )
 
-        await logger.ainfo(
-            "Подтверждение отправлено пользователю",
-            user_id=user_id,
-            lead_id=lead.id,
-        )
-
-        # Ждем 1 секунду и показываем главное меню
         await asyncio.sleep(1)
+        await message.answer(text="Чем я еще могу вам помочь?", reply_markup=get_main_menu_kb())
 
-        await message.answer(
-            text="Чем я еще могу вам помочь?",
-            reply_markup=get_main_menu_kb(),
-        )
-
-        await logger.ainfo(
-            "Главное меню отправлено после подтверждения заявки",
-            user_id=user_id,
-            lead_id=lead.id,
-        )
+        await logger.ainfo("Заявка успешно сохранена", user_id=user_id, lead_id=lead.id)
 
     except Exception as e:
-        await logger.aerror(
-            "Ошибка при сохранении заявки",
-            user_id=user_id,
-            name=name,
-            phone=phone,
-            error=str(e),
-        )
-
-        # Очищаем state
+        await logger.aerror("Ошибка при сохранении заявки", user_id=user_id, error=str(e))
         await state.clear()
-
-        # Отправляем сообщение об ошибке
         await message.answer(
-            text=(
-                "❌ Произошла ошибка при сохранении заявки. "
-                "Пожалуйста, попробуйте позже."
-            ),
+            text="❌ Произошла ошибка при сохранении заявки. Пожалуйста, попробуйте позже.",
             reply_markup=get_main_menu_kb(),
-        )
-
-        await logger.ainfo(
-            "Сообщение об ошибке отправлено пользователю",
-            user_id=user_id,
         )

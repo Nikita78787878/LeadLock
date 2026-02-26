@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from bot.database.base import Base
+from bot.database.models.base import Base
 
 
 class Lead(Base):

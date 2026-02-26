@@ -8,7 +8,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.core.config import settings
+from bot.settings import settings
 from bot.services.faq_service import FAQService
 from bot.services.lead_service import LeadService
 from bot.services.google_sheets_service import GoogleSheetsService
