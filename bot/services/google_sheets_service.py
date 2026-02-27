@@ -124,7 +124,6 @@ class GoogleSheetsService:
                 error=str(e),
                 error_type=type(e).__name__,
             )
-    # TODO Времено заменил метод заглушил
     async def health_check(self) -> bool:
         """Проверить соединение с Google Sheets."""
         try:

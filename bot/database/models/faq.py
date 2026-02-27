@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text
-from bot.database.base import Base
+from bot.database.models.base import Base
 
 
 class FAQ(Base):

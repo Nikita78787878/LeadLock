@@ -4,8 +4,6 @@ Inline-клавиатуры для бота.
 Содержит CallbackData-фабрики и функции для генерации динамических inline-клавиатур.
 """
 
-from typing import Optional
-
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 

@@ -7,6 +7,7 @@ from bot.database.models.base import Base
 
 
 class FAQItem(Base):
+    """Модель для хранения вопросов и ответа на них."""
     __tablename__ = "faq_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

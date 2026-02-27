@@ -1,11 +1,10 @@
 """Хендлеры главного меню и навигации."""
 
 import structlog
-from aiogram import Router, F
+from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
-from bot.database.repositories.user_repo import UserRepository
 
 from bot.keyboards.inline import (
     MainMenuCD,

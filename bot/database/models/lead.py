@@ -1,3 +1,4 @@
+"""Модель конфигурации лидов."""
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship

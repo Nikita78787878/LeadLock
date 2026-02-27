@@ -12,7 +12,6 @@ from aiogram.types import (
     KeyboardButton,
     ReplyKeyboardRemove,
 )
-from bot.database.repositories.user_repo import UserRepository
 
 from bot.keyboards.inline import MainMenuCD, get_main_menu_kb
 from bot.services.lead_service import LeadService
