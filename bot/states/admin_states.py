@@ -21,3 +21,4 @@ class ConfigEdit(StatesGroup):
 
     waiting_for_welcome = State()  # ввод нового приветственного текста
     waiting_for_contacts = State()  # ввод новых контактов
+    waiting_for_location = State() # где мы находимся

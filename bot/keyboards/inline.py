@@ -69,6 +69,12 @@ def get_main_menu_kb() -> InlineKeyboardMarkup:
                 callback_data=MainMenuCD(action="contact").pack(),
             ),
         ],
+        [
+            InlineKeyboardButton(
+                text="📍 Где мы находимся",
+                callback_data=MainMenuCD(action="location").pack(),
+            ),
+        ],
     ]
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)

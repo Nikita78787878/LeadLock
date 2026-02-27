@@ -857,6 +857,10 @@ async def handle_admin_settings(
             callback_data="admin:settings:contacts",
         )
         builder.button(
+            text="📍 Где мы находимся",
+            callback_data="admin:settings:location",
+        )
+        builder.button(
             text="⬅️ Назад",
             callback_data="admin:main",
         )
@@ -1075,6 +1079,94 @@ async def handle_config_contacts_input(
     except Exception as e:
         await logger.aerror(
             "Ошибка при сохранении контактов",
+            user_id=user_id,
+            error=str(e),
+        )
+        await message.answer(
+            text="❌ Произошла ошибка при сохранении. Попробуйте позже.",
+        )
+        await state.clear()
+
+@router.callback_query(F.data == "admin:settings:location")
+async def handle_settings_location(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """
+    Обработчик редактирования блока 'Где мы находимся'.
+    """
+    user_id = callback.from_user.id
+
+    await logger.ainfo(
+        "Администратор начал редактирование блока 'Где мы находимся'",
+        user_id=user_id,
+    )
+
+    try:
+        config_service = ConfigService(session)
+        current_location = await config_service.get_config_value("location")
+
+        await state.set_state(ConfigEdit.waiting_for_location)
+
+        await callback.message.edit_text(
+            text=(
+                f"Текущее значение:\n"
+                f"{current_location or 'Не задано'}\n\n"
+                f"Введите новое описание местоположения:"
+            ),
+        )
+        await callback.answer()
+
+    except Exception as e:
+        await logger.aerror(
+            "Ошибка при открытии редактирования местоположения",
+            user_id=user_id,
+            error=str(e),
+        )
+        await callback.answer(
+            text="Произошла ошибка. Попробуйте позже.",
+            show_alert=True,
+        )
+@router.message(ConfigEdit.waiting_for_location)
+async def handle_config_location_input(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """
+    Обработчик ввода нового значения 'Где мы находимся'.
+    """
+    user_id = message.from_user.id
+    new_location = message.text
+
+    await logger.ainfo(
+        "Администратор ввёл новое местоположение",
+        user_id=user_id,
+        text_length=len(new_location),
+    )
+
+    try:
+        config_service = ConfigService(session)
+        await config_service.set_value("location", new_location)
+        await session.commit()
+
+        await state.clear()
+
+        await logger.ainfo(
+            "Местоположение обновлено",
+            user_id=user_id,
+        )
+
+        await message.answer(
+            text="✅ Местоположение обновлено",
+        )
+
+        await show_admin_menu(message)
+
+    except Exception as e:
+        await logger.aerror(
+            "Ошибка при сохранении местоположения",
             user_id=user_id,
             error=str(e),
         )

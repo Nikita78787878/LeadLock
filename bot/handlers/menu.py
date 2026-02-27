@@ -130,6 +130,29 @@ async def handle_main_menu(
                 "Отображены контакты",
                 user_id=user_id,
             )
+        elif action == "location":
+            # Получаем местоположение через сервис
+            config_service = ConfigService(session)
+            location = await config_service.get_config_value("location")
+
+            if not location:
+                await callback.message.edit_text(
+                    text="📍 Информация о местоположении пока не добавлена.",
+                    reply_markup=get_back_kb(back_to="main"),
+                )
+                await logger.awarning(
+                    "Местоположение не задано",
+                    user_id=user_id,
+                )
+            else:
+                await callback.message.edit_text(
+                    text=f"📍 Где мы находимся:\n\n{location}",
+                    reply_markup=get_back_kb(back_to="main"),
+                )
+                await logger.ainfo(
+                    "Отображено местоположение",
+                    user_id=user_id,
+                )
 
         else:
             await logger.awarning(
