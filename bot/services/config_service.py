@@ -67,3 +67,67 @@ class ConfigService:
                 error=str(e),
             )
             return default
+
+    async def set_value(self, key: str, value: str) -> None:
+        """
+        Установить значение конфигурации.
+
+        Args:
+            key: Ключ конфигурации
+            value: Значение конфигурации
+        """
+        try:
+            await self.repository.set_value(key, value)
+            await logger.ainfo(
+                "Значение конфигурации установлено",
+                key=key,
+            )
+        except Exception as e:
+            await logger.aerror(
+                "Ошибка при установке значения конфигурации",
+                key=key,
+                error=str(e),
+            )
+            raise
+
+    async def get_contacts(self) -> str:
+        """
+        Получить контактные данные из БД.
+
+        Returns:
+            Контактные данные
+        """
+        try:
+            contacts = await self.repository.get_value(
+                "contacts",
+                default="Контакты не указаны",
+            )
+            await logger.ainfo("Получены контакты из конфигурации")
+            return contacts
+        except Exception as e:
+            await logger.aerror(
+                "Ошибка при получении контактов",
+                error=str(e),
+            )
+            return "Контакты не указаны"
+
+    async def get_all_settings(self) -> list:
+        """
+        Получить все настройки.
+
+        Returns:
+            Список всех настроек
+        """
+        try:
+            settings = await self.repository.get_all()
+            await logger.ainfo(
+                "Получены все настройки",
+                count=len(settings),
+            )
+            return settings
+        except Exception as e:
+            await logger.aerror(
+                "Ошибка при получении настроек",
+                error=str(e),
+            )
+            return []

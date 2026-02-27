@@ -118,13 +118,16 @@ async def handle_main_menu(
                 )
 
         elif action == "contact":
-            # TODO: Реализация отображения контактов
+            # Получаем контакты через сервис
+            config_service = ConfigService(session)
+            contacts = await config_service.get_contacts()
+
             await callback.message.edit_text(
-                text="📞 Контактная информация будет доступна в следующей версии.",
+                text=f"📞 Контактная информация:\n\n{contacts}",
                 reply_markup=get_back_kb(back_to="main"),
             )
             await logger.ainfo(
-                "Выбрана функция контактов",
+                "Отображены контакты",
                 user_id=user_id,
             )
 

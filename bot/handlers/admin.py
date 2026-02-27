@@ -12,7 +12,8 @@ from bot.settings import settings
 from bot.services.faq_service import FAQService
 from bot.services.lead_service import LeadService
 from bot.services.google_sheets_service import GoogleSheetsService
-from bot.states.admin_states import FAQEdit, FAQAdd
+from bot.services.config_service import ConfigService
+from bot.states.admin_states import FAQEdit, FAQAdd, ConfigEdit
 
 logger = structlog.get_logger()
 
@@ -41,6 +42,10 @@ async def show_admin_menu(message: Message) -> None:
     builder.button(
         text="📊 Последние заявки",
         callback_data="admin:leads",
+    )
+    builder.button(
+        text="⚙️ Настройки",
+        callback_data="admin:settings",
     )
 
     # По одной кнопке в строке
@@ -815,3 +820,265 @@ async def handle_admin_main(callback: CallbackQuery) -> None:
             text="Произошла ошибка. Попробуйте позже.",
             show_alert=True,
         )
+
+
+# ============================================================================
+# Блок 4: Настройки
+# ============================================================================
+
+
+@router.callback_query(F.data == "admin:settings")
+async def handle_admin_settings(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    """
+    Обработчик открытия раздела настроек.
+
+    Args:
+        callback: Callback query от администратора
+        session: Сессия БД
+    """
+    user_id = callback.from_user.id
+
+    await logger.ainfo(
+        "Администратор открыл настройки",
+        user_id=user_id,
+    )
+
+    try:
+        builder = InlineKeyboardBuilder()
+        builder.button(
+            text="✏️ Приветственный текст",
+            callback_data="admin:settings:welcome",
+        )
+        builder.button(
+            text="📞 Контакты",
+            callback_data="admin:settings:contacts",
+        )
+        builder.button(
+            text="⬅️ Назад",
+            callback_data="admin:main",
+        )
+        builder.adjust(1)
+
+        await callback.message.edit_text(
+            text="⚙️ Настройки бота",
+            reply_markup=builder.as_markup(),
+        )
+        await callback.answer()
+
+    except Exception as e:
+        await logger.aerror(
+            "Ошибка при отображении настроек",
+            user_id=user_id,
+            error=str(e),
+        )
+        await callback.answer(
+            text="Произошла ошибка. Попробуйте позже.",
+            show_alert=True,
+        )
+
+
+@router.callback_query(F.data == "admin:settings:welcome")
+async def handle_settings_welcome(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """
+    Обработчик редактирования приветственного текста.
+
+    Args:
+        callback: Callback query от администратора
+        state: Состояние FSM
+        session: Сессия БД
+    """
+    user_id = callback.from_user.id
+
+    await logger.ainfo(
+        "Администратор начал редактирование приветственного текста",
+        user_id=user_id,
+    )
+
+    try:
+        # Получаем текущий текст
+        config_service = ConfigService(session)
+        current_text = await config_service.get_welcome_text()
+
+        # Переходим к ожиданию нового текста
+        await state.set_state(ConfigEdit.waiting_for_welcome)
+
+        await callback.message.edit_text(
+            text=f"Текущий текст:\n{current_text}\n\nВведите новый текст:",
+        )
+        await callback.answer()
+
+    except Exception as e:
+        await logger.aerror(
+            "Ошибка при редактировании приветственного текста",
+            user_id=user_id,
+            error=str(e),
+        )
+        await callback.answer(
+            text="Произошла ошибка. Попробуйте позже.",
+            show_alert=True,
+        )
+
+
+@router.callback_query(F.data == "admin:settings:contacts")
+async def handle_settings_contacts(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """
+    Обработчик редактирования контактов.
+
+    Args:
+        callback: Callback query от администратора
+        state: Состояние FSM
+        session: Сессия БД
+    """
+    user_id = callback.from_user.id
+
+    await logger.ainfo(
+        "Администратор начал редактирование контактов",
+        user_id=user_id,
+    )
+
+    try:
+        # Получаем текущие контакты
+        config_service = ConfigService(session)
+        current_contacts = await config_service.get_contacts()
+
+        # Переходим к ожиданию новых контактов
+        await state.set_state(ConfigEdit.waiting_for_contacts)
+
+        await callback.message.edit_text(
+            text=f"Текущие контакты:\n{current_contacts}\n\nВведите новые контакты:",
+        )
+        await callback.answer()
+
+    except Exception as e:
+        await logger.aerror(
+            "Ошибка при редактировании контактов",
+            user_id=user_id,
+            error=str(e),
+        )
+        await callback.answer(
+            text="Произошла ошибка. Попробуйте позже.",
+            show_alert=True,
+        )
+
+
+@router.message(ConfigEdit.waiting_for_welcome)
+async def handle_config_welcome_input(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """
+    Обработчик ввода нового приветственного текста.
+
+    Args:
+        message: Сообщение с текстом
+        state: Состояние FSM
+        session: Сессия БД
+    """
+    user_id = message.from_user.id
+    new_text = message.text
+
+    await logger.ainfo(
+        "Администратор ввёл новый приветственный текст",
+        user_id=user_id,
+        text_length=len(new_text),
+    )
+
+    try:
+        # Сохраняем новый текст
+        config_service = ConfigService(session)
+        await config_service.set_value("welcome_text", new_text)
+        await session.commit()
+
+        # Очищаем состояние
+        await state.clear()
+
+        await logger.ainfo(
+            "Приветственный текст обновлён",
+            user_id=user_id,
+        )
+
+        await message.answer(
+            text="✅ Приветственный текст обновлён",
+        )
+
+        # Возвращаем в главное меню
+        await show_admin_menu(message)
+
+    except Exception as e:
+        await logger.aerror(
+            "Ошибка при сохранении приветственного текста",
+            user_id=user_id,
+            error=str(e),
+        )
+        await message.answer(
+            text="❌ Произошла ошибка при сохранении. Попробуйте позже.",
+        )
+        await state.clear()
+
+
+@router.message(ConfigEdit.waiting_for_contacts)
+async def handle_config_contacts_input(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """
+    Обработчик ввода новых контактов.
+
+    Args:
+        message: Сообщение с контактами
+        state: Состояние FSM
+        session: Сессия БД
+    """
+    user_id = message.from_user.id
+    new_contacts = message.text
+
+    await logger.ainfo(
+        "Администратор ввёл новые контакты",
+        user_id=user_id,
+        contacts_length=len(new_contacts),
+    )
+
+    try:
+        # Сохраняем новые контакты
+        config_service = ConfigService(session)
+        await config_service.set_value("contacts", new_contacts)
+        await session.commit()
+
+        # Очищаем состояние
+        await state.clear()
+
+        await logger.ainfo(
+            "Контакты обновлены",
+            user_id=user_id,
+        )
+
+        await message.answer(
+            text="✅ Контакты обновлены",
+        )
+
+        # Возвращаем в главное меню
+        await show_admin_menu(message)
+
+    except Exception as e:
+        await logger.aerror(
+            "Ошибка при сохранении контактов",
+            user_id=user_id,
+            error=str(e),
+        )
+        await message.answer(
+            text="❌ Произошла ошибка при сохранении. Попробуйте позже.",
+        )
+        await state.clear()

@@ -45,3 +45,40 @@ class ConfigRepository:
         """
         config = await self.get_by_key(key)
         return config.value if config else default
+
+    async def set_value(self, key: str, value: str) -> Config:
+        """
+        Установить значение конфигурации по ключу.
+
+        Если ключ существует - обновляет, иначе создаёт новую запись.
+
+        Args:
+            key: Ключ конфигурации
+            value: Значение конфигурации
+
+        Returns:
+            Объект Config
+        """
+        config = await self.get_by_key(key)
+
+        if config:
+            # Обновляем существующую запись
+            config.value = value
+        else:
+            # Создаём новую запись
+            config = Config(key=key, value=value)
+            self.session.add(config)
+
+        await self.session.flush()
+        return config
+
+    async def get_all(self) -> list[Config]:
+        """
+        Получить все записи конфигурации.
+
+        Returns:
+            Список всех объектов Config
+        """
+        stmt = select(Config)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
