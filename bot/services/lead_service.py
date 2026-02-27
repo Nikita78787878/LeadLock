@@ -8,8 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models.lead import Lead
 from bot.database.repositories.lead_repo import LeadRepository
+from bot.settings import settings
 
 if TYPE_CHECKING:
+    from aiogram import Bot
     from bot.services.google_sheets_service import GoogleSheetsService
 
 logger = structlog.get_logger()
@@ -22,6 +24,7 @@ class LeadService:
         self,
         session: AsyncSession,
         sheets_service: "GoogleSheetsService | None" = None,
+        bot: "Bot | None" = None,
     ):
         """
         Инициализация сервиса.
@@ -29,9 +32,11 @@ class LeadService:
         Args:
             session: AsyncSession для операций с БД
             sheets_service: Сервис для работы с Google Sheets
+            bot: Экземпляр aiogram Bot для отправки уведомлений
         """
         self.repository = LeadRepository(session)
         self.sheets_service = sheets_service
+        self.bot = bot
 
     def validate_name(self, name: str) -> tuple[bool, str]:
         """
@@ -154,8 +159,9 @@ class LeadService:
                 phone=normalized_phone,
             )
 
-            # Отправляем уведомление в интеграции
+            # Отправляем уведомления в интеграции и админам
             await self._notify_sheets(lead)
+            await self._notify_admins(lead, description)
 
             return lead
         except Exception as e:
@@ -181,6 +187,49 @@ class LeadService:
             return
 
         await self.sheets_service.append_lead(lead)
+
+    async def _notify_admins(self, lead: Lead, description: Optional[str] = None) -> None:
+        """
+        Отправить уведомление администраторам о новой заявке.
+
+        Args:
+            lead: Объект заявки
+            description: Описание заявки
+        """
+        if self.bot is None:
+            await logger.ainfo(
+                "Bot не подключён, уведомление админам не отправлено",
+                lead_id=lead.id,
+            )
+            return
+
+        message_text = (
+            f"🔔 Новая заявка!\n\n"
+            f"👤 {lead.name}\n"
+            f"📞 {lead.phone}\n"
+            f"📝 {description or '—'}\n"
+            f"🕐 {lead.created_at:%d.%m.%Y %H:%M}"
+        )
+
+        for admin_id in settings.ADMIN_IDS:
+            try:
+                await self.bot.send_message(
+                    chat_id=admin_id,
+                    text=message_text,
+                )
+                await logger.ainfo(
+                    "Уведомление отправлено администратору",
+                    admin_id=admin_id,
+                    lead_id=lead.id,
+                )
+            except Exception as e:
+                await logger.aerror(
+                    "Ошибка при отправке уведомления администратору",
+                    admin_id=admin_id,
+                    lead_id=lead.id,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
 
     async def get_recent_leads(self, limit: int = 10) -> list[Lead]:
         """

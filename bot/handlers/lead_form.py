@@ -3,7 +3,7 @@
 import asyncio
 
 import structlog
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     Message,
@@ -350,6 +350,7 @@ async def process_description(
     message: Message,
     state: FSMContext,
     session,
+    bot: Bot,
 ) -> None:
     from bot.database.repositories.user_repo import UserRepository
     from bot.services.google_sheets_service import GoogleSheetsService
@@ -388,7 +389,7 @@ async def process_description(
     )
 
     # Сохраняем заявку
-    lead_service = LeadService(session, sheets_service=sheets_service)
+    lead_service = LeadService(session, sheets_service=sheets_service, bot=bot)
 
     try:
         lead = await lead_service.save_lead(
