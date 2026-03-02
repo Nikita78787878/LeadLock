@@ -110,11 +110,10 @@ async def handle_settings_welcome(
 
         await callback.message.edit_text(
             text=(
-                f"Текущий текст:\n{current_text}\n\n"
+                f"Текущий текст (нажмите чтобы скопировать):\n\n"
+                f"<code>{current_text}</code>\n\n"
                 f"Введите новый текст или нажмите Отмена\n\n"
-                f"💡 <b>Подсказка:</b> используйте <code>{{name}}</code> "
-                f"чтобы вставить имя пользователя\n"
-                f"Пример: <i>Привет, {{name}}! 👋</i>"
+                f"💡 Используйте <code>{{name}}</code> для имени пользователя"
             ),
             parse_mode="HTML",
         )
@@ -162,7 +161,12 @@ async def handle_settings_contacts(
         await state.set_state(ConfigEdit.waiting_for_contacts)
 
         await callback.message.edit_text(
-            text=f"Текущий контакты:\n{current_contacts}\n\nВведите новые контакты или нажмите Отмена:",
+            text=(
+                f"Текущие контакты (нажмите чтобы скопировать):\n\n"
+                f"<code>{current_contacts}</code>\n\n"
+                f"Введите новые контакты или нажмите Отмена:"
+            ),
+            parse_mode="HTML",
         )
         await callback.message.answer("👇", reply_markup=get_cancel_kb())
 
@@ -202,10 +206,11 @@ async def handle_settings_location(
 
         await callback.message.edit_text(
             text=(
-                f"Текущее значение:\n"
-                f"{current_location or 'Не задано'}\n\n"
-                f"Введите новое описание или нажмите Отмена:"
+                f"Текущий адрес (нажмите чтобы скопировать):\n\n"
+                f"<code>{current_location or 'Не задано'}</code>\n\n"
+                f"Введите новый адрес или нажмите Отмена:"
             ),
+            parse_mode="HTML",
         )
         await callback.message.answer("👇", reply_markup=get_cancel_kb())
 
@@ -406,8 +411,12 @@ async def handle_settings_maps_url(
     current = await config_service.get_config_value("maps_url")
     await state.set_state(ConfigEdit.waiting_for_maps_url)
     await callback.message.edit_text(
-        text=f"Текущая ссылка:\n{current or 'Не задана'}\n\nВставьте новую ссылку на 2GIS или Яндекс.Карты"
-             f" \n\nВАЖНО! нужна \"чистая\" ссылка например: \nhttps://go.2gis.com/...",
+        text=(
+            f"Текущая ссылка (нажмите чтобы скопировать):\n\n"
+            f"<code>{current or 'Не задана'}</code>\n\n"
+            f"Вставьте новую ссылку на 2GIS или нажмите Отмена:"
+        ),
+        parse_mode="HTML",
     )
     await callback.message.answer("👇", reply_markup=get_cancel_kb())
 
