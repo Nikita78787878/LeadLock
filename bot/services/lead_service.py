@@ -160,7 +160,19 @@ class LeadService:
             )
 
             # Отправляем уведомления в интеграции и админам
-            await self._notify_sheets(lead)
+            try:
+                await self._notify_sheets(lead)
+                await self.repository.mark_synced(lead.id)
+                await logger.ainfo(
+                    "Заявка синхронизирована с Google Sheets",
+                    lead_id=lead.id,
+                )
+            except Exception as sheets_err:
+                await logger.awarning(
+                    "Не удалось синхронизировать с Google Sheets, будет выгружено вручную",
+                    lead_id=lead.id,
+                    error=str(sheets_err),
+                )
             await self._notify_admins(lead, description)
 
             return lead
@@ -261,3 +273,52 @@ class LeadService:
                 error=str(e),
             )
             raise
+
+    async def sync_unsynced_to_sheets(self) -> int:
+        """
+        Выгрузить все несинхронизированные заявки в Google Sheets.
+
+        Returns:
+            Количество успешно выгруженных заявок
+        """
+        # Проверяем наличие сервиса Google Sheets
+        if self.sheets_service is None:
+            await logger.awarning(
+                "Google Sheets сервис не подключён",
+            )
+            return 0
+
+        # Получаем все несинхронизированные заявки
+        unsynced = await self.repository.get_unsynced()
+        if not unsynced:
+            await logger.ainfo(
+                "Все заявки уже синхронизированы",
+            )
+            return 0
+
+        # Синхронизируем каждую заявку
+        count = 0
+        for lead in unsynced:
+            try:
+                await self.sheets_service.append_lead(lead)
+                await self.repository.mark_synced(lead.id)
+                count += 1
+                await logger.ainfo(
+                    "Заявка выгружена",
+                    lead_id=lead.id,
+                )
+            except Exception as e:
+                await logger.awarning(
+                    "Не удалось выгрузить заявку",
+                    lead_id=lead.id,
+                    error=str(e),
+                )
+
+        # Логируем итоги синхронизации
+        await logger.ainfo(
+            "Синхронизация завершена",
+            count=count,
+            total=len(unsynced),
+        )
+
+        return count

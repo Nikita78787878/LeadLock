@@ -19,7 +19,7 @@ class GoogleSheetsService:
         "https://www.googleapis.com/auth/drive",
     ]
     WORKSHEET_NAME = "Заявки"
-    HEADERS = ["Дата", "Имя", "Телефон", "Описание", "User ID", "Статус"]
+    HEADERS = ["ID", "Дата", "Имя", "Телефон", "Описание", "User ID", "Статус"]
 
     def __init__(self, credentials_path: str, sheet_id: str):
         """
@@ -98,6 +98,7 @@ class GoogleSheetsService:
 
             # Подготовить строку с данными заявки
             row = [
+                str(lead.id),
                 lead.created_at.strftime("%d.%m.%Y %H:%M"),
                 lead.name,
                 lead.phone,

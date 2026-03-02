@@ -110,3 +110,28 @@ class LeadRepository:
         stmt = select(Lead).order_by(desc(Lead.created_at)).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def get_unsynced(self) -> list[Lead]:
+        """
+        Получить заявки не выгруженные в Google Sheets.
+
+        Returns:
+            Список объектов Lead, не синхронизированных с Google Sheets
+        """
+        stmt = select(Lead).where(Lead.synced_to_sheets == False).order_by(Lead.created_at)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def mark_synced(self, lead_id: int) -> None:
+        """
+        Пометить заявку как выгруженную в Google Sheets.
+
+        Args:
+            lead_id: ID заявки для пометки как синхронизированной
+        """
+        stmt = select(Lead).where(Lead.id == lead_id)
+        result = await self.session.execute(stmt)
+        lead = result.scalars().first()
+        if lead:
+            lead.synced_to_sheets = True
+            await self.session.flush()
