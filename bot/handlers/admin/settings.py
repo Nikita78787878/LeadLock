@@ -9,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.config_service import ConfigService
 from bot.states.admin_states import ConfigEdit
+from .helpers import cancel_edit
 from .menu import show_admin_menu
+from ...keyboards.reply import get_cancel_kb
 
 logger = structlog.get_logger()
 
@@ -107,9 +109,9 @@ async def handle_settings_welcome(
         await state.set_state(ConfigEdit.waiting_for_welcome)
 
         await callback.message.edit_text(
-            text=f"Текущий текст:\n{current_text}\n\nВведите новый текст:",
+            text=f"Текущий текст:\n{current_text}\n\nВведите новый текст или нажмите Отмена:",
         )
-        await callback.answer()
+        await callback.message.answer("👇", reply_markup=get_cancel_kb())
 
     except Exception as e:
         await logger.aerror(
@@ -153,9 +155,9 @@ async def handle_settings_contacts(
         await state.set_state(ConfigEdit.waiting_for_contacts)
 
         await callback.message.edit_text(
-            text=f"Текущие контакты:\n{current_contacts}\n\nВведите новые контакты:",
+            text=f"Текущий контакты:\n{current_contacts}\n\nВведите новые контакты или нажмите Отмена:",
         )
-        await callback.answer()
+        await callback.message.answer("👇", reply_markup=get_cancel_kb())
 
     except Exception as e:
         await logger.aerror(
@@ -195,10 +197,10 @@ async def handle_settings_location(
             text=(
                 f"Текущее значение:\n"
                 f"{current_location or 'Не задано'}\n\n"
-                f"Введите новое описание местоположения:"
+                f"Введите новое описание или нажмите Отмена:"
             ),
         )
-        await callback.answer()
+        await callback.message.answer("👇", reply_markup=get_cancel_kb())
 
     except Exception as e:
         await logger.aerror(
@@ -226,6 +228,10 @@ async def handle_config_welcome_input(
         state: Состояние FSM
         session: Сессия БД
     """
+    if message.text == "❌ Отмена":
+        await cancel_edit(message, state)
+        return
+
     user_id = message.from_user.id
     new_text = message.text
 
@@ -282,6 +288,11 @@ async def handle_config_contacts_input(
         state: Состояние FSM
         session: Сессия БД
     """
+
+    if message.text == "❌ Отмена":
+        await cancel_edit(message, state)
+        return
+
     user_id = message.from_user.id
     new_contacts = message.text
 
@@ -333,6 +344,11 @@ async def handle_config_location_input(
     """
     Обработчик ввода нового значения 'Где мы находимся'.
     """
+
+    if message.text == "❌ Отмена":
+        await cancel_edit(message, state)
+        return
+
     user_id = message.from_user.id
     new_location = message.text
 
@@ -385,7 +401,7 @@ async def handle_settings_maps_url(
     await callback.message.edit_text(
         text=f"Текущая ссылка:\n{current or 'Не задана'}\n\nВставьте новую ссылку на 2GIS или Яндекс.Карты:",
     )
-    await callback.answer()
+    await callback.message.answer("👇", reply_markup=get_cancel_kb())
 
 
 @router.message(ConfigEdit.waiting_for_maps_url)
@@ -395,6 +411,11 @@ async def handle_config_maps_url_input(
     session: AsyncSession,
 ) -> None:
     """Сохранение новой ссылки на карту."""
+
+    if message.text == "❌ Отмена":
+        await cancel_edit(message, state)
+        return
+
     config_service = ConfigService(session)
     await config_service.set_value("maps_url", message.text)
     await session.commit()
