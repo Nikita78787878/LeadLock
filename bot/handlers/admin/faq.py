@@ -29,14 +29,12 @@ async def show_faq_list(
     """
     user_id = callback.from_user.id
 
-    # Получаем список FAQ
     faq_service = FAQService(session)
     faq_items = await faq_service.get_all_faq_items()
 
     builder = InlineKeyboardBuilder()
 
     if not faq_items:
-        # FAQ пуст - показываем только кнопку добавления
         text = "📝 FAQ пуст. Добавьте первый вопрос."
 
         builder.button(
@@ -54,34 +52,25 @@ async def show_faq_list(
             user_id=user_id,
         )
     else:
-        # Формируем список FAQ
         text = "📝 Управление FAQ:\n\n"
 
         for i, item in enumerate(faq_items, start=1):
-            # Обрезаем вопрос до 25 символов
             question_short = item.question
             if len(question_short) > 25:
                 question_short = question_short[:25] + "..."
 
             text += f"{i}. {question_short}\n"
 
-            # Кнопка просмотра
+            # Оставляем только кнопку просмотра
             builder.button(
                 text=f"{i}. {question_short}",
                 callback_data=f"admin:faq:view:{item.id}",
             )
-            # Кнопки редактирования и удаления в одной строке
-            builder.button(
-                text="✏️",
-                callback_data=f"admin:faq:edit:{item.id}",
-            )
-            builder.button(
-                text="🗑️",
-                callback_data=f"admin:faq:del:{item.id}",
-            )
-            builder.adjust(1, 2)
 
-        # Кнопка добавления нового FAQ
+        # Каждая кнопка с вопросом — в отдельной строке
+        builder.adjust(1)
+
+        # Кнопки управления внизу
         builder.button(
             text="➕ Добавить FAQ",
             callback_data="admin:faq:add",
@@ -90,6 +79,8 @@ async def show_faq_list(
             text="⬅️ Назад",
             callback_data="admin:main",
         )
+
+        builder.adjust(1)
 
         await logger.ainfo(
             "Отображен список FAQ",
