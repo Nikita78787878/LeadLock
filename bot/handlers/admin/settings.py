@@ -109,7 +109,14 @@ async def handle_settings_welcome(
         await state.set_state(ConfigEdit.waiting_for_welcome)
 
         await callback.message.edit_text(
-            text=f"Текущий текст:\n{current_text}\n\nВведите новый текст или нажмите Отмена:",
+            text=(
+                f"Текущий текст:\n{current_text}\n\n"
+                f"Введите новый текст или нажмите Отмена\n\n"
+                f"💡 <b>Подсказка:</b> используйте <code>{{name}}</code> "
+                f"чтобы вставить имя пользователя\n"
+                f"Пример: <i>Привет, {{name}}! 👋</i>"
+            ),
+            parse_mode="HTML",
         )
         await callback.message.answer("👇", reply_markup=get_cancel_kb())
 

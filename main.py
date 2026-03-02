@@ -11,8 +11,7 @@ import structlog
 from aiogram import BaseMiddleware, Bot, Dispatcher, F
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import TelegramObject
-from sqlalchemy.ext.asyncio import AsyncSession
+from aiogram.types import TelegramObject, BotCommand, MenuButtonCommands
 
 from bot.database.db_helper import async_session_maker, close_engine
 from bot.handlers.admin import router as admin_router
@@ -72,6 +71,7 @@ class DbSessionMiddleware(BaseMiddleware):
             return await handler(event, data)
 
 
+
 # ============================================================================
 # Обработчики жизненного цикла
 # ============================================================================
@@ -104,6 +104,13 @@ async def on_startup(bot: Bot) -> None:
             credentials_path=settings.GOOGLE_CREDENTIALS_JSON,
             sheet_id=settings.GOOGLE_SHEET_ID,
         )
+
+        # Устанавливаем кнопки команд
+        await bot.set_my_commands([
+            BotCommand(command="start", description="🏠 Главное меню"),
+        ])
+        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+        await logger.ainfo("✅ Кнопка меню установлена")
 
         # Проверяем доступность Google Sheets
         try:

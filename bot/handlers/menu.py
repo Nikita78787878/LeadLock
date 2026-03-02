@@ -56,8 +56,11 @@ async def cmd_start(message: Message, session: AsyncSession) -> None:
         # Получаем приветственный текст через сервис
         config_service = ConfigService(session)
         welcome_text = await config_service.get_welcome_text()
+        first_name = message.from_user.first_name or "Гость"
 
-        await message.answer(text=welcome_text, reply_markup=get_main_menu_kb())
+        personalized_text = welcome_text.replace("{name}", first_name)
+
+        await message.answer(text=personalized_text, reply_markup=get_main_menu_kb())
         await logger.ainfo("Отправлено приветственное сообщение", user_id=user_id)
 
     except Exception as e:
