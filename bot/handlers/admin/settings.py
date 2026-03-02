@@ -399,7 +399,8 @@ async def handle_settings_maps_url(
     current = await config_service.get_config_value("maps_url")
     await state.set_state(ConfigEdit.waiting_for_maps_url)
     await callback.message.edit_text(
-        text=f"Текущая ссылка:\n{current or 'Не задана'}\n\nВставьте новую ссылку на 2GIS или Яндекс.Карты:",
+        text=f"Текущая ссылка:\n{current or 'Не задана'}\n\nВставьте новую ссылку на 2GIS или Яндекс.Карты"
+             f" \n\nВАЖНО! нужна \"чистая\" ссылка например: \nhttps://go.2gis.com/...",
     )
     await callback.message.answer("👇", reply_markup=get_cancel_kb())
 
