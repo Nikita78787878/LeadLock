@@ -24,14 +24,21 @@ async def seed_config(session: AsyncSession) -> None:
     contacts = (
         "📞 +7‒914‒958‒51‒88\n"
         "📞 +7‒904‒127‒23‒23\n\n"
-        "📍 34-й микрорайон, ст41 этаж\n"
-        "Въезд с ул. Енисейская\n"
-        "Ангарск, Иркутская область\n\n"
         "🕐 Уточняйте время записи по телефону"
     )
 
+    location = (
+        "34-й микрорайон, ст41 этаж\n"
+        "Въезд с ул. Енисейская\n"
+        "Ангарск, Иркутская область"
+    )
+
+    maps_url = "https://go.2gis.com/rqQ8Z"
+
     await config_repo.set_value("welcome_text", welcome_text)
     await config_repo.set_value("contacts", contacts)
+    await config_repo.set_value("location", location)
+    await config_repo.set_value("maps_url", maps_url)
 
     await logger.ainfo("Конфигурация обновлена")
 
