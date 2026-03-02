@@ -73,3 +73,31 @@ class FAQService:
                 error=str(e),
             )
             raise
+
+    async def get_faq_items_by_category(
+        self, category: str
+    ) -> list[FAQItem]:
+        """
+        Получить элементы FAQ по категории.
+
+        Args:
+            category: Категория FAQ
+
+        Returns:
+            Список элементов FAQItem по категории
+        """
+        try:
+            items = await self.repository.get_by_category(category)
+            await logger.ainfo(
+                "Получены элементы FAQ по категории",
+                category=category,
+                count=len(items),
+            )
+            return items
+        except Exception as e:
+            await logger.aerror(
+                "Ошибка при получении FAQ по категории",
+                category=category,
+                error=str(e),
+            )
+            raise

@@ -21,6 +21,12 @@ class MainMenuCD(CallbackData, prefix="main_menu"):
     action: str  # Действие: "faq", "lead", "contact"
 
 
+class ServiceItemCD(CallbackData, prefix="service_item"):
+    """Callback для выбора элемента услуги."""
+
+    item_id: int
+
+
 class FAQItemCD(CallbackData, prefix="faq_item"):
     """Callback для выбора элемента FAQ."""
 
@@ -38,14 +44,16 @@ class BackCD(CallbackData, prefix="back"):
 # ============================================================================
 
 
-def get_main_menu_kb() -> InlineKeyboardMarkup:
+def get_main_menu_kb(
+    phone: str = "+79149585188",
+    maps_url: str = "https://go.2gis.com/rqQ8Z",
+) -> InlineKeyboardMarkup:
     """
     Генерирует главную клавиатуру с основными опциями.
 
-    Кнопки:
-    - ❓ FAQ — просмотр часто задаваемых вопросов
-    - 📋 Оставить заявку — создание новой заявки
-    - 📞 Связаться — контактная информация
+    Args:
+        phone: Номер телефона для кнопки звонка
+        maps_url: Ссылка на 2GIS или Яндекс.Карты
 
     Returns:
         InlineKeyboardMarkup: Inline-клавиатура с главным меню
@@ -53,26 +61,31 @@ def get_main_menu_kb() -> InlineKeyboardMarkup:
     buttons = [
         [
             InlineKeyboardButton(
-                text="❓ FAQ",
+                text="✨ Услуги и цены",
+                callback_data=MainMenuCD(action="services").pack(),
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text="❓ Частые вопросы",
                 callback_data=MainMenuCD(action="faq").pack(),
             ),
         ],
-        [
-            InlineKeyboardButton(
-                text="📋 Оставить заявку",
-                callback_data=MainMenuCD(action="lead").pack(),
+        [InlineKeyboardButton(
+            text="📞 Позвонить нам",
+            callback_data=MainMenuCD(action="contact").pack(),
             ),
         ],
         [
             InlineKeyboardButton(
-                text="📞 Связаться",
-                callback_data=MainMenuCD(action="contact").pack(),
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                text="📍 Где мы находимся",
+                text="📍 Как нас найти",
                 callback_data=MainMenuCD(action="location").pack(),
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text="📅 Записаться на детейлинг",
+                callback_data=MainMenuCD(action="lead").pack(),
             ),
         ],
     ]
@@ -112,6 +125,38 @@ def get_faq_menu_kb(faq_items: list[FAQItem]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+def get_services_menu_kb(faq_items: list[FAQItem]) -> InlineKeyboardMarkup:
+    """
+    Генерирует клавиатуру со списком услуг и цен.
+
+    Для каждого элемента создаётся кнопка с текстом услуги.
+    Внизу добавляется кнопка «Назад» для возврата в главное меню.
+
+    Args:
+        faq_items: Список объектов FAQItem для отображения услуг
+
+    Returns:
+        InlineKeyboardMarkup: Inline-клавиатура со списком услуг
+    """
+    buttons = []
+
+    # Добавляем кнопки для каждого элемента услуги
+    for item in faq_items:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text=item.question,
+                    callback_data=ServiceItemCD(item_id=item.id).pack(),
+                ),
+            ]
+        )
+
+    # Добавляем кнопку «Назад»
+    buttons.append(get_back_kb(back_to="main").inline_keyboard[0])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
 def get_back_kb(back_to: str = "main") -> InlineKeyboardMarkup:
     """
     Генерирует универсальную кнопку «Назад».
@@ -121,7 +166,7 @@ def get_back_kb(back_to: str = "main") -> InlineKeyboardMarkup:
 
     Args:
         back_to: Целевой экран для возврата. По умолчанию "main".
-                 Возможные значения: "main", "faq", и т.д.
+                 Возможные значения: "main", "faq", "services", и т.д.
 
     Returns:
         InlineKeyboardMarkup: Inline-клавиатура с кнопкой назад

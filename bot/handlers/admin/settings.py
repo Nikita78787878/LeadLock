@@ -50,6 +50,10 @@ async def handle_admin_settings(
             callback_data="admin:settings:location",
         )
         builder.button(
+            text="🗺 Ссылка на карту",
+            callback_data="admin:settings:maps_url",
+        )
+        builder.button(
             text="⬅️ Назад",
             callback_data="admin:main",
         )
@@ -366,3 +370,34 @@ async def handle_config_location_input(
             text="❌ Произошла ошибка при сохранении. Попробуйте позже.",
         )
         await state.clear()
+
+
+@router.callback_query(F.data == "admin:settings:maps_url")
+async def handle_settings_maps_url(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """Редактирование ссылки на карту."""
+    config_service = ConfigService(session)
+    current = await config_service.get_config_value("maps_url")
+    await state.set_state(ConfigEdit.waiting_for_maps_url)
+    await callback.message.edit_text(
+        text=f"Текущая ссылка:\n{current or 'Не задана'}\n\nВставьте новую ссылку на 2GIS или Яндекс.Карты:",
+    )
+    await callback.answer()
+
+
+@router.message(ConfigEdit.waiting_for_maps_url)
+async def handle_config_maps_url_input(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession,
+) -> None:
+    """Сохранение новой ссылки на карту."""
+    config_service = ConfigService(session)
+    await config_service.set_value("maps_url", message.text)
+    await session.commit()
+    await state.clear()
+    await message.answer("✅ Ссылка на карту обновлена")
+    await show_admin_menu(message)

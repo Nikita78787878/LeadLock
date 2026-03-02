@@ -33,6 +33,17 @@ class FAQRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_by_category(self, category: str) -> list[FAQItem]:
+        """Получить активные элементы FAQ по категории."""
+        stmt = (
+            select(FAQItem)
+            .where(FAQItem.is_active == True)
+            .where(FAQItem.category == category)
+            .order_by(FAQItem.order, FAQItem.id)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def get_by_id(self, faq_id: int) -> FAQItem | None:
         """
         Получить элемент FAQ по ID.
@@ -47,7 +58,7 @@ class FAQRepository:
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def create(self, question: str, answer: str, order: int = 0) -> FAQItem:
+    async def create(self, question: str, answer: str, order: int = 0, category: str = "faq") -> FAQItem:
         """
         Создать новый элемент FAQ.
 
@@ -55,11 +66,12 @@ class FAQRepository:
             question: Вопрос FAQ
             answer: Ответ на вопрос
             order: Порядок сортировки (по умолчанию 0)
+            category: Категория FAQ (по умолчанию "faq")
 
         Returns:
             Созданный объект FAQItem
         """
-        item = FAQItem(question=question, answer=answer, order=order)
+        item = FAQItem(question=question, answer=answer, order=order, category=category)
         self.session.add(item)
         await self.session.flush()
         return item
