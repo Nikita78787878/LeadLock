@@ -94,10 +94,11 @@ async def on_startup(bot: Bot) -> None:
         from bot.database.models.base import Base
         from bot.database.models import User, Lead, FAQItem, Config, Operator
 
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-        await logger.ainfo("✅ Таблицы БД проверены/созданы")
+        #  TODO Костыль для проливки БД
+        # async with engine.begin() as conn:
+        #     await conn.run_sync(Base.metadata.create_all)
+        #
+        # await logger.ainfo("✅ Таблицы БД проверены/созданы")
 
         # Инициализируем сервис Google Sheets
         sheets_service = GoogleSheetsService(
