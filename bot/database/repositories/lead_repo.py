@@ -135,3 +135,35 @@ class LeadRepository:
         if lead:
             lead.synced_to_sheets = True
             await self.session.flush()
+
+    async def get_page(self, page: int, page_size: int = 5) -> list[Lead]:
+        """
+        Получить заявки постранично, отсортированные от новых к старым.
+
+        Args:
+            page: номер страницы, начиная с 0
+            page_size: количество заявок на странице
+
+        Returns:
+            Список объектов Lead для данной страницы
+        """
+        stmt = (
+            select(Lead)
+            .order_by(desc(Lead.created_at))
+            .offset(page * page_size)
+            .limit(page_size)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def count_all(self) -> int:
+        """
+        Подсчитать общее количество заявок.
+
+        Returns:
+            Количество заявок
+        """
+        from sqlalchemy import func
+        stmt = select(func.count()).select_from(Lead)
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
