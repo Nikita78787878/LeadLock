@@ -254,14 +254,14 @@ async def export_leads_to_sheets(
     lead_service = LeadService(session, sheets_service=sheets_service)
 
     try:
-        count = await lead_service.sync_unsynced_to_sheets()
+        count = await lead_service.export_to_sheets()
         await session.commit()
 
         if count == 0:
-            await callback.message.answer("✅ Все заявки уже выгружены в Google Sheets")
+            await callback.message.answer("✅ Все заявки уже присутствуют в Google Sheets")
         else:
             await callback.message.answer(
-                f"✅ Выгружено <b>{count}</b> новых заявок в Google Sheets",
+                f"✅ Добавлено <b>{count}</b> заявок в Google Sheets",
                 parse_mode="HTML",
             )
     except Exception as e:

@@ -125,6 +125,33 @@ class GoogleSheetsService:
                 error=str(e),
                 error_type=type(e).__name__,
             )
+    async def get_existing_ids(self) -> set[int]:
+        """Получить множество ID заявок, уже присутствующих в Google Sheets."""
+        try:
+            client = await self._get_client()
+            spreadsheet = await client.open_by_key(self.sheet_id)
+            try:
+                worksheet = await spreadsheet.worksheet(self.WORKSHEET_NAME)
+            except WorksheetNotFound:
+                return set()
+
+            # Читаем только первый столбец (ID), пропускаем заголовок
+            id_column = await worksheet.col_values(1)
+            result = set()
+            for cell in id_column[1:]:  # пропускаем "ID"
+                try:
+                    result.add(int(cell))
+                except (ValueError, TypeError):
+                    pass
+            return result
+        except Exception as e:
+            await logger.aerror(
+                "Ошибка при чтении ID из Google Sheets",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
+
     async def health_check(self) -> bool:
         """Проверить соединение с Google Sheets."""
         try:
