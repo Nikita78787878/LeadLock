@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger()
 
+VALID_STATUSES = {"new", "in_progress", "closed", "rejected"}
+
 
 class LeadService:
     """Сервис для работы с заявками."""
@@ -375,4 +377,76 @@ class LeadService:
             exported=count,
             skipped=len(all_leads) - count,
         )
+        return count
+
+    async def update_lead_status(self, lead_id: int, status: str) -> "Lead | None":
+        """
+        Обновить статус заявки в БД и синхронизировать в Google Sheets.
+
+        Args:
+            lead_id: ID заявки
+            status: Новый статус
+
+        Returns:
+            Обновлённый Lead или None если не найден
+        """
+        if status not in VALID_STATUSES:
+            raise ValueError(f"Недопустимый статус: {status}")
+
+        lead = await self.repository.update_status(lead_id, status)
+        if lead is None:
+            return None
+
+        if self.sheets_service is not None:
+            try:
+                await self.sheets_service.update_lead_status_in_sheets(lead_id, status)
+            except Exception as e:
+                await logger.awarning(
+                    "Не удалось обновить статус в Google Sheets",
+                    lead_id=lead_id,
+                    error=str(e),
+                )
+
+        await logger.ainfo("Статус заявки обновлён", lead_id=lead_id, status=status)
+        return lead
+
+    async def sync_statuses_from_sheets(self) -> int:
+        """
+        Синхронизировать статусы из Google Sheets в БД.
+
+        Читает статусы из Sheets и обновляет в БД те заявки,
+        у которых статус отличается.
+
+        Returns:
+            Количество обновлённых заявок
+        """
+        if self.sheets_service is None:
+            return 0
+
+        try:
+            sheets_statuses = await self.sheets_service.get_statuses_from_sheets()
+        except Exception as e:
+            await logger.aerror(
+                "Не удалось прочитать статусы из Google Sheets",
+                error=str(e),
+            )
+            return 0
+
+        if not sheets_statuses:
+            return 0
+
+        all_leads = await self.repository.get_all()
+        count = 0
+        for lead in all_leads:
+            new_status = sheets_statuses.get(lead.id)
+            if new_status and new_status in VALID_STATUSES and new_status != lead.status:
+                await self.repository.update_status(lead.id, new_status)
+                count += 1
+                await logger.ainfo(
+                    "Статус обновлён из Google Sheets",
+                    lead_id=lead.id,
+                    old_status=lead.status,
+                    new_status=new_status,
+                )
+
         return count

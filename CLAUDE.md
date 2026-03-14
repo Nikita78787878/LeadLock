@@ -66,8 +66,8 @@ Telegram Update → aiogram Router → Handler → Service → Repository → Po
 - `admin/` — суб-роутеры панели администратора (заявки с пагинацией, CRUD FAQ, настройки)
 
 **Services** (`bot/services/`) — вся бизнес-логика:
-- `lead_service.py` — валидация/нормализация имени и телефона, сохранение заявки, синхронизация с Sheets и уведомление админов
-- `google_sheets_service.py` — async gspread клиент; автоматически создаёт лист "Заявки" с заголовками при первом использовании
+- `lead_service.py` — валидация/нормализация имени и телефона, сохранение заявки, смена статуса (`update_lead_status`), синхронизация с Sheets (`sync_statuses_from_sheets`) и уведомление админов. Константа `VALID_STATUSES` определяет допустимые статусы.
+- `google_sheets_service.py` — async gspread клиент; автоматически создаёт лист "Заявки" с заголовками при первом использовании; методы `get_statuses_from_sheets` и `update_lead_status_in_sheets` обеспечивают двустороннюю синхронизацию статусов.
 - `faq_service.py` / `config_service.py` — тонкие обёртки над репозиториями
 
 **Repositories** (`bot/database/repositories/`) — только SQLAlchemy-запросы, никакой логики
@@ -93,3 +93,10 @@ Telegram Update → aiogram Router → Handler → Service → Repository → Po
 
 ### Валидация телефона
 Телефоны нормализуются к формату `+7XXXXXXXXXX` (12 символов). `8XXXXXXXXXX` → `+7XXXXXXXXXX` автоматически.
+
+### Статусы заявок
+Допустимые значения (`VALID_STATUSES` в `lead_service.py`): `new`, `in_progress`, `closed`, `rejected`. Статус меняется через кнопки в карточке заявки (бот) или вручную в колонке G Google Sheets.
+
+### Двусторонняя синхронизация статусов (Sheets ↔ DB)
+- **Бот → Sheets:** `LeadService.update_lead_status` обновляет БД и вызывает `GoogleSheetsService.update_lead_status_in_sheets` — ищет строку по ID в колонке 1, обновляет колонку 7.
+- **Sheets → DB:** фоновая корутина `sheets_sync_loop()` в `main.py` запускается при старте бота и каждые 600 секунд вызывает `LeadService.sync_statuses_from_sheets`. Таск хранится в `_sync_task` и gracefully отменяется при shutdown.

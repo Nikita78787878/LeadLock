@@ -21,8 +21,34 @@ from bot.middlewares.admin_middleware import AdminMiddleware
 from bot.services.google_sheets_service import GoogleSheetsService
 from bot.settings import settings
 
+_sync_task: asyncio.Task | None = None
+
 # Инициализация логгера
 logger = structlog.get_logger(__name__)
+
+
+async def sheets_sync_loop() -> None:
+    """Фоновая задача: синхронизация статусов из Google Sheets в БД каждые 10 минут."""
+    from bot.services.lead_service import LeadService
+
+    while True:
+        await asyncio.sleep(600)
+        try:
+            async with async_session_maker() as session:
+                sheets_service = GoogleSheetsService(
+                    credentials_path=settings.GOOGLE_CREDENTIALS_JSON,
+                    sheet_id=settings.GOOGLE_SHEET_ID,
+                )
+                lead_service = LeadService(session, sheets_service=sheets_service)
+                count = await lead_service.sync_statuses_from_sheets()
+                if count:
+                    await session.commit()
+                    await logger.ainfo(
+                        "Синхронизировано статусов из Google Sheets",
+                        count=count,
+                    )
+        except Exception as e:
+            await logger.aerror("Ошибка фоновой синхронизации статусов", error=str(e))
 
 
 # ============================================================================
@@ -137,6 +163,10 @@ async def on_startup(bot: Bot) -> None:
                 sheet_id=settings.GOOGLE_SHEET_ID,
             )
 
+        global _sync_task
+        _sync_task = asyncio.create_task(sheets_sync_loop())
+        await logger.ainfo("✅ Фоновая синхронизация статусов запущена (каждые 10 мин)")
+
         await logger.ainfo("✅ Бот успешно запущен")
 
     except Exception as e:
@@ -158,6 +188,14 @@ async def on_shutdown(bot: Bot) -> None:
         bot: Экземпляр бота
     """
     await logger.ainfo("🔴 Бот останавливается...")
+
+    global _sync_task
+    if _sync_task and not _sync_task.done():
+        _sync_task.cancel()
+        try:
+            await _sync_task
+        except asyncio.CancelledError:
+            pass
 
     try:
         # Закрываем engine и все соединения БД
