@@ -19,6 +19,12 @@ router = Router(name="admin_leads")
 
 PAGE_SIZE = 5  # заявок на одной странице
 
+STATUS_MAP = {
+    "new": "🆕 Новая",
+    "in_progress": "🔄 В работе",
+    "closed": "✅ Закрыта",
+    "rejected": "❌ Отклонена",
+}
 
 # ============================================================================
 # CallbackData
@@ -31,6 +37,12 @@ class LeadsPageCD(CallbackData, prefix="leads_page"):
 class LeadDetailCD(CallbackData, prefix="lead_detail"):
     lead_id: int
     page: int  # чтобы вернуться на ту же страницу
+
+
+class LeadStatusCD(CallbackData, prefix="lead_status"):
+    lead_id: int
+    status: str
+    page: int
 
 
 # ============================================================================
@@ -87,6 +99,30 @@ def _build_leads_keyboard(
     rows = [1] * len(leads) + [3, 1, 1]
     builder.adjust(*rows)
 
+    return builder.as_markup()
+
+
+def _build_detail_keyboard(lead, page: int) -> object:
+    """Строит клавиатуру карточки заявки с кнопками смены статуса."""
+    builder = InlineKeyboardBuilder()
+
+    for status_key, label in STATUS_MAP.items():
+        marker = "· " if lead.status == status_key else ""
+        builder.button(
+            text=f"{marker}{label}",
+            callback_data=LeadStatusCD(
+                lead_id=lead.id,
+                status=status_key,
+                page=page,
+            ).pack(),
+        )
+
+    builder.button(
+        text="⬅️ К списку",
+        callback_data=LeadsPageCD(page=page).pack(),
+    )
+    # 2+2 статусные кнопки, 1 кнопка назад
+    builder.adjust(2, 2, 1)
     return builder.as_markup()
 
 
@@ -178,26 +214,24 @@ async def handle_lead_detail(
     session: AsyncSession,
 ) -> None:
     """Показать полную карточку заявки."""
-    from sqlalchemy import select
-    from bot.database.models.lead import Lead
+    await _show_lead_detail(callback, session, callback_data.lead_id, callback_data.page)
 
+
+async def _show_lead_detail(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    lead_id: int,
+    page: int,
+) -> None:
+    """Отрисовать карточку заявки."""
     repo = LeadRepository(session)
-
-    stmt = select(Lead).where(Lead.id == callback_data.lead_id)
-    result = await session.execute(stmt)
-    lead = result.scalars().first()
+    lead = await repo.get_by_id(lead_id)
 
     if lead is None:
         await callback.answer("Заявка не найдена", show_alert=True)
         return
 
-    status_map = {
-        "new": "🆕 Новая",
-        "in_progress": "🔄 В работе",
-        "closed": "✅ Закрыта",
-        "rejected": "❌ Отклонена",
-    }
-    status_label = status_map.get(lead.status, lead.status)
+    status_label = STATUS_MAP.get(lead.status, lead.status)
     synced_label = "✅ Да" if lead.synced_to_sheets else "⏳ Нет"
 
     text = (
@@ -210,19 +244,46 @@ async def handle_lead_detail(
         f"📤 <b>В Sheets:</b> {synced_label}"
     )
 
-    builder = InlineKeyboardBuilder()
-    builder.button(
-        text="⬅️ К списку",
-        callback_data=LeadsPageCD(page=callback_data.page).pack(),
-    )
-    builder.adjust(1)
-
     await callback.message.edit_text(
         text=text,
-        reply_markup=builder.as_markup(),
+        reply_markup=_build_detail_keyboard(lead, page),
         parse_mode="HTML",
     )
     await callback.answer()
+
+
+# ============================================================================
+# Смена статуса заявки
+# ============================================================================
+
+@router.callback_query(LeadStatusCD.filter())
+async def handle_lead_status_change(
+    callback: CallbackQuery,
+    callback_data: LeadStatusCD,
+    session: AsyncSession,
+) -> None:
+    """Сменить статус заявки и обновить карточку."""
+    repo = LeadRepository(session)
+    lead = await repo.get_by_id(callback_data.lead_id)
+
+    if lead is None:
+        await callback.answer("Заявка не найдена", show_alert=True)
+        return
+
+    if lead.status == callback_data.status:
+        await callback.answer()
+        return
+
+    sheets_service = GoogleSheetsService(
+        credentials_path=settings.GOOGLE_CREDENTIALS_JSON,
+        sheet_id=settings.GOOGLE_SHEET_ID,
+    )
+    lead_service = LeadService(session, sheets_service=sheets_service)
+    await lead_service.update_lead_status(callback_data.lead_id, callback_data.status)
+    await session.commit()
+
+    await callback.answer("✅ Статус обновлён")
+    await _show_lead_detail(callback, session, callback_data.lead_id, callback_data.page)
 
 
 # ============================================================================
@@ -254,14 +315,14 @@ async def export_leads_to_sheets(
     lead_service = LeadService(session, sheets_service=sheets_service)
 
     try:
-        count = await lead_service.sync_unsynced_to_sheets()
+        count = await lead_service.export_to_sheets()
         await session.commit()
 
         if count == 0:
-            await callback.message.answer("✅ Все заявки уже выгружены в Google Sheets")
+            await callback.message.answer("✅ Все заявки уже присутствуют в Google Sheets")
         else:
             await callback.message.answer(
-                f"✅ Выгружено <b>{count}</b> новых заявок в Google Sheets",
+                f"✅ Добавлено <b>{count}</b> заявок в Google Sheets",
                 parse_mode="HTML",
             )
     except Exception as e:

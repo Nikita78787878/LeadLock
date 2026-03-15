@@ -50,6 +50,11 @@ class LeadRepository:
         await self.session.flush()
         return lead
 
+    async def get_by_id(self, lead_id: int) -> Lead | None:
+        stmt = select(Lead).where(Lead.id == lead_id)
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
     async def get_by_user_id(self, user_id: int) -> list[Lead]:
         """
         Get all leads for a specific user.
