@@ -17,13 +17,16 @@ from bot.database.db_helper import async_session_maker, close_engine
 from bot.handlers.admin import router as admin_router
 from bot.handlers.lead_form import router as lead_form_router
 from bot.handlers.menu import router as menu_router
+from bot.logging_config import setup_logging
 from bot.middlewares.admin_middleware import AdminMiddleware
 from bot.services.google_sheets_service import GoogleSheetsService
 from bot.settings import settings
 
+# Настраиваем логирование до создания любых логгеров
+setup_logging(log_level=settings.LOG_LEVEL, env="development")
+
 _sync_task: asyncio.Task | None = None
 
-# Инициализация логгера
 logger = structlog.get_logger(__name__)
 
 
