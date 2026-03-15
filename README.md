@@ -114,25 +114,28 @@ LeadLock/
 ├── main.py                        # Точка входа, регистрация роутеров и middleware
 ├── bot/
 │   ├── settings.py                # Конфигурация (pydantic-settings)
+│   ├── logging_config.py          # Настройка structlog (файлы + консоль)
 │   ├── database/
 │   │   ├── db_helper.py           # SQLAlchemy engine и фабрика сессий
 │   │   ├── models/                # ORM-модели
 │   │   └── repositories/          # Слой доступа к данным
 │   ├── handlers/
-│   │   ├── menu.py                # /start, главное меню, FAQ
+│   │   ├── menu.py                # /start, главное меню, FAQ, услуги, контакты, локация
 │   │   ├── lead_form.py           # FSM-форма сбора заявки
-│   │   └── admin/                 # Панель администратора
+│   │   └── admin/                 # Панель администратора (заявки, FAQ, настройки)
 │   ├── services/
-│   │   ├── lead_service.py        # Валидация, сохранение, синхронизация
+│   │   ├── lead_service.py        # Валидация, сохранение, синхронизация статусов
 │   │   ├── faq_service.py
 │   │   ├── config_service.py
 │   │   └── google_sheets_service.py
-│   ├── keyboards/                 # Inline и reply-клавиатуры
+│   ├── keyboards/
+│   │   ├── inline.py              # CallbackData-фабрики и inline-клавиатуры
+│   │   └── reply.py               # Reply-клавиатуры (отмена, поделиться контактом)
 │   ├── middlewares/               # DbSession и Admin middleware
-│   ├── states/                    # FSM-состояния
+│   ├── states/                    # FSM-состояния (LeadForm, FAQEdit, FAQAdd, ConfigEdit)
 │   └── webapps/                   # WebApp HTML (PRO/AI)
 ├── alembic/                       # Миграции базы данных
-└── tests/                         # Тесты
+└── tests/                         # Тесты (pytest + pytest-asyncio)
 ```
 
 ### Модели базы данных
